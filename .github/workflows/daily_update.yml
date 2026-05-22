@@ -113,5 +113,10 @@ jobs:
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         git add processed_links.txt reports/
-        git commit -m "Auto-update: Law updates for $(date +'%Y-%m-%d')"
-        git push
+        if [ -n "$(git status --porcelain)" ]; then
+          git commit -m "Auto-update: Law updates for $(date +'%Y-%m-%d')"
+          git push
+        else
+          echo "No changes to commit"
+        fi
+
