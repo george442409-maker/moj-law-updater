@@ -1,0 +1,14 @@
+# Credentials
+gmail_creds.xml
+
+# Logs
+*.log
+updater.log
+
+# Temp files
+reports/temp_*
+reports/temp_*.html
+
+# OS files
+.DS_Store
+Thumbs.db

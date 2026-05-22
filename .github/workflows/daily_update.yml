@@ -1,0 +1,75 @@
+name: Daily MOJ Law Updater
+
+on:
+  schedule:
+    # 10:00 AM Taiwan Time (UTC+8) is 2:00 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allows manual trigger from the GitHub UI
+
+jobs:
+  update-laws:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        persist-credentials: true
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+
+    # Run the scraping script (generates MD and PDF)
+    - name: Fetch Laws & Generate Reports
+      run: |
+        node fetch_laws.js
+
+    # Check if a new report file was created
+    - name: Check for new reports
+      id: check_files
+      run: |
+        TODAY=$(date +'%Y%m%d')
+        if [ -f "reports/law_updates_${TODAY}.pdf" ]; then
+          echo "has_updates=true" >> $GITHUB_OUTPUT
+          echo "today=${TODAY}" >> $GITHUB_OUTPUT
+        else
+          echo "has_updates=false" >> $GITHUB_OUTPUT
+        fi
+
+    # Read email subject
+    - name: Read email template info
+      id: email_template
+      if: steps.check_files.outputs.has_updates == 'true'
+      run: |
+        SUBJECT=$(cat email_subject.txt)
+        echo "subject=$SUBJECT" >> $GITHUB_OUTPUT
+
+    # Send email with attachments
+    - name: Send Email
+      if: steps.check_files.outputs.has_updates == 'true'
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        secure: true
+        username: ${{ secrets.GMAIL_USER }}
+        password: ${{ secrets.GMAIL_APP_PASSWORD }}
+        subject: ${{ steps.email_template.outputs.subject }}
+        to: george442409@gmail.com
+        from: ${{ secrets.GMAIL_USER }}
+        body: file://email_body.txt
+        attachments: |
+          reports/law_updates_${{ steps.check_files.outputs.today }}.pdf
+          reports/law_updates_${{ steps.check_files.outputs.today }}.md
+
+    # Commit changes (processed_links.txt, and the generated reports) back to git
+    - name: Commit and push changes
+      if: steps.check_files.outputs.has_updates == 'true'
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add processed_links.txt reports/
+        git commit -m "Auto-update: Law updates for $(date +'%Y-%m-%d')"
+        git push
