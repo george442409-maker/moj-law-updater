@@ -49,6 +49,45 @@ jobs:
         SUBJECT=$(cat email_subject.txt)
         echo "subject=$SUBJECT" >> $GITHUB_OUTPUT
 
+    # Diagnose and Format Credentials
+    - name: Diagnose and Format Credentials
+      id: fmt_email
+      env:
+        GMAIL_USER: ${{ secrets.GMAIL_USER }}
+        GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+      run: |
+        echo "=== Secrets Diagnostics ==="
+        if [ -z "$GMAIL_USER" ]; then
+          echo "  - GMAIL_USER is empty! Defaulting to george442409@gmail.com"
+          USER_EMAIL="george442409@gmail.com"
+        else
+          echo "  - GMAIL_USER is configured (length: ${#GMAIL_USER})"
+          if [[ "$GMAIL_USER" != *"@"* ]]; then
+            LOWER_USER=$(echo "$GMAIL_USER" | tr '[:upper:]' '[:lower:]')
+            if [[ "$LOWER_USER" == *"maker"* ]]; then
+              echo "    -> Detected 'maker' in GMAIL_USER. Defaulting to george442409@gmail.com"
+              USER_EMAIL="george442409@gmail.com"
+            else
+              USER_EMAIL="${GMAIL_USER}@gmail.com"
+            fi
+          else
+            USER_EMAIL="$GMAIL_USER"
+          fi
+        fi
+        
+        if [ -z "$GMAIL_APP_PASSWORD" ]; then
+          echo "  - GMAIL_APP_PASSWORD is empty!"
+          CLEAN_PASSWORD=""
+        else
+          echo "  - GMAIL_APP_PASSWORD is configured (length: ${#GMAIL_APP_PASSWORD})"
+          CLEAN_PASSWORD=$(echo "$GMAIL_APP_PASSWORD" | tr -d ' ')
+        fi
+        
+        echo "Formatted username: $USER_EMAIL"
+        echo "user_email=${USER_EMAIL}" >> $GITHUB_OUTPUT
+        echo "password=${CLEAN_PASSWORD}" >> $GITHUB_OUTPUT
+        echo "::add-mask::$CLEAN_PASSWORD"
+
     # Send email with attachments
     - name: Send Email
       if: steps.check_files.outputs.has_updates == 'true'
@@ -57,11 +96,11 @@ jobs:
         server_address: smtp.gmail.com
         server_port: 465
         secure: true
-        username: ${{ secrets.GMAIL_USER }}
-        password: ${{ secrets.GMAIL_APP_PASSWORD }}
+        username: ${{ steps.fmt_email.outputs.user_email }}
+        password: ${{ steps.fmt_email.outputs.password }}
         subject: ${{ steps.email_template.outputs.subject }}
         to: george442409@gmail.com
-        from: ${{ secrets.GMAIL_USER }}
+        from: ${{ steps.fmt_email.outputs.user_email }}
         body: file://email_body.txt
         attachments: |
           reports/law_updates_${{ steps.check_files.outputs.today }}.pdf
