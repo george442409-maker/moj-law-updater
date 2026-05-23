@@ -2,8 +2,8 @@ name: Daily MOJ Law Updater
 
 on:
   schedule:
-    # 10:00 AM Taiwan Time (UTC+8) is 2:00 AM UTC
-    - cron: '0 2 * * *'
+    # 10:18 AM Taiwan Time (UTC+8) is 2:18 AM UTC (avoiding round hours to reduce trigger delays)
+    - cron: '18 2 * * *'
   workflow_dispatch: # Allows manual trigger from the GitHub UI
 
 permissions:
